@@ -1,45 +1,52 @@
-use os;
 use uo;
+use os;
+use polsys;
+use cfgfile;
 
-include "include/spawn";
+include "include/report";
+//include ":merchants:storage";
 
-program SpawnThatStuff ()
-//	Syslog ("Merchant spawner running");
-	set_critical (1);
-	var merchants_to_respawn := GetGlobalProperty ("respawnmerchants");
-	if (!merchants_to_respawn)
-		return;
+program Initializemerchants()
+
+	if( GetGlobalProperty( "MerchantInitialized" ))
+		return 1;
 	endif
 
-	EraseGlobalProperty ("respawnmerchants");
-	foreach merchant in merchants_to_respawn
-		var x := merchant[1];
-		var y := merchant[2];
-		var z := merchant[3];
-		var rlm := merchant[4];
-		var npctemplate := merchant[5];
-		var npc := SpawnNPCAtLocation (npctemplate, x, y, z, 0, rlm);
-		if (!npc)
-			LogBadMerchantSpawn (npctemplate, x, y, rlm);
+	SetGlobalProperty( "MerchantInitialized", 1 );
+
+	var cfg_file := ReadConfigFile( ":merchantspawner:spawns" );
+	foreach realm_name in ( Realms().Keys() )
+		var cfg_elem := cfg_file[realm_name];
+		if( cfg_elem )
+			SetupMerchantsInRealm( realm_name, cfg_elem );
 		endif
+
+		SleepMS(2);
 	endforeach
-	set_critical(0);
+ 
+	UnloadConfigFile( ":merchantspawner:spawns" );
+
+	return 1;
 endprogram
 
+function SetupMerchantsInRealm( realm_name, cfg_elem )
 
-function LogBadMerchantSpawn (npctemplate, x, y, rlm)
-	var log := array { };
-	var prop:= struct {};
+	foreach entry in ( GetConfigStringArray( cfg_elem, "Merchant" ))
+		entry := SplitWords( entry );
+  
+  		var x := CInt( entry[1] ),
+		    y := CInt( entry[2] ),
+		    z := CInt( GetWorldHeight( x, y, realm_name )),
+		    template := CStr( entry[3] );
+		    //shared := entry[4];
 
-    	prop.+name := "Unable to spawn:";
-    	prop.+value := npctemplate;
-	log[1] := prop;
+		var result := CreateNpcFromTemplate( ":merchants:"+template, x, y, z, 0, realm_name );
+		if( !result )
+			ReportText( "Error: Could not create merchant "+template+" location x:"+x+" y:"+y+" -->"+result.errortext+"", REPORT_SYSLOG );
+			continue;
+		endif
+		SleepMS(2);
+	endforeach
 
-    	prop.+name := "Location:";
-    	prop.+value := x + ", " + y + ", " + rlm;
-	log[2] := prop;
-
-	AppendConfigFileElem (":merchantspawner:merchantspawner", "Merchant", "spawner", log);
-	UnloadConfigFile (":merchantspawner:merchantspawner");
-
+	return 1;
 endfunction

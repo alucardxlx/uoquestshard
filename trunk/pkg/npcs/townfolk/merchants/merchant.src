@@ -48,6 +48,8 @@ program merchantai()
 			me.hidden := 0;
 		endif
 
+		//Retirado caminhada do NPC
+		/*
 		if (readgameclock() > next_wander)
 			if (GetObjProperty (me, "destinationx"))
 				var mydestx := GetObjProperty (me, "destinationx");
@@ -68,6 +70,7 @@ program merchantai()
 			endif
 			next_wander := readgameclock()+2;
 		endif
+		*/
 
 		if (wanders > 60)
 			wanders := 0;
